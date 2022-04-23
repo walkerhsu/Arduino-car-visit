@@ -40,7 +40,7 @@ class bluetooth:
     def SerialReadString(self):
         # TODO: Get the information from Bluetooth. Notice that the return type should be transformed into hex.
         waiting = self.waiting()
-        if waiting >= 0:
+        if waiting:
             receiveMsg = self.ser.readline().decode("utf-8")[:-1]
             return receiveMsg
         return ""
@@ -66,7 +66,7 @@ def write():
         
         if msgWrite == "exit": sys.exit()
     
-        bt.write(msgWrite + "\n")
+        bt.SerialWrite(msgWrite + "\n")
 
 if __name__ == "__main__":
     # Please modify the port name.
@@ -78,7 +78,4 @@ if __name__ == "__main__":
     readThread.daemon = True
     readThread.start()
 
-    while True:
-        msgWrite = input()
-        #if msgWrite == "exit": sys.exit()
-        bt.write(msgWrite)
+    read()

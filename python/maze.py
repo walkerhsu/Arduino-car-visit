@@ -25,7 +25,7 @@ class Maze:
         self.nd_dict = dict()
         self.num_rows = self.raw_data.shape[0]
         self.endNodes = []
-        self.startPoint = 4
+        self.startPoint = 12
         for i in range (self.num_rows) :
             tmpNode = node.Node(self.raw_data , i+1)
             if tmpNode.checkIfEnd():

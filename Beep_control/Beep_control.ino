@@ -6,12 +6,19 @@
 
 MFRC522 *mfrc522;
 SoftwareSerial BT (13, 12);
-void MotorWriting(double vL , double vR);
-void MotorTesting();
-void checkHowToGo(char dir);
+
+//主程式
+void MotorWriting(double vL , double vR); // 給定車車左右輪移動參數
+void MotorTesting(); // 藍芽控制馬達
+void checkHowToGo(String dir); // 從python取得下次前進方向 
+void checkIfBeep(String dir , int curstep , int len);
 void Tracking();
 void Beep();
-void communicate();
+void BTtoSerial();
+void SerialtoBT();
+
+//輔助程式
+void MotorTesting(); // 測試馬達
 
 int PWMA = 2;
 int PWMB = 3;
@@ -27,11 +34,18 @@ int M = 35;
 int R2 = 36;
 int R3 = 37;
 
-int turns=0;
 int lastError=0;
+
 char c1,c2;
-char c[9]={'R','R','B','R','R','B','L','S','L'};
-//R:右轉，L:左轉，B:迴轉，S:直走
+String dir;
+// 傳入值為string
+int curstep = 0;
+int len = 0;
+
+char c;
+//R:右轉，L:左轉，S:直走
+
+bool checkbeep = false;
 
 void setup() {
   pinMode(PWMA, OUTPUT);
@@ -49,13 +63,19 @@ void setup() {
   mfrc522->PCD_Init();
   Serial.println(F("Read UID on a MIFARE PICC:"));
 }
+
 void loop() { //檢查是否讀取到RFID, 對應的UID 是什麼？
-  //Tracking();
-  //if(turns==2 || turns==5 || turns==9) Beep();
-  Beep();
-  communicate();
-  //checkHowToGo('N');
+  if (len==0) BTtoSerial();
+  if (len!=0) {
+    Tracking();
+  }
+  if (checkbeep) {
+    Beep();
+    SerialtoBT();
+  }
+  
 }
+
 void MotorWriting(double vL , double vR) {
    digitalWrite(STBY, HIGH);
    if(vL<0) {
@@ -87,8 +107,9 @@ void Tracking(){
   int m  = digitalRead(M);
   int r2 = digitalRead(R2);
   int r3 = digitalRead(R3);
-  
-  int w3 = 1.5;
+
+  // P control 參數
+  int w3 = 2;
   int w2 = 1;
   int Kp = 50;
   int VStraight = 200;
@@ -96,20 +117,22 @@ void Tracking(){
   
   double vL = 0;
   double vR = 0;
-  
-  if(l3+l2+m+r2+r3==0) {
-    if(turns==9) {
-      vL=0;
-      vR=0;
-    }
-    else if(c[turns-1]=='R' || c[turns-1]=='B') {
+
+  // 遇到全白
+  if(l3+l2+m+r2+r3 == 0) {
+    if(c == 'R') {
        vL=100;
        vR=-100;
     }
-    else if(c[turns-1]=='L') {
+    else if(c == 'L') {
        vL=-100;
        vR=100;
     }
+    else if(c == 'S') {
+       vL=200;
+       vR=200;
+    }
+    //繼續執行直到脫離全白
     while((l3+l2+m+r2+r3) == 0) {
       MotorWriting(vL , vR);
       l3 = digitalRead(L3);
@@ -119,8 +142,13 @@ void Tracking(){
       r3 = digitalRead(R3);
     }
   }
-  else if(l3+l2+m+r2+r3==5){
-    while((l3+l2+m+r2+r3)==5){
+
+  //遇到全黑
+  else if(l3+l2+m+r2+r3 == 5){
+    //繼續直走至非全黑
+    MotorWriting(VStraight , VStraight);
+    delay(200);
+    while((l3+l2+m+r2+r3) == 5){
       MotorWriting(VStraight , VStraight);
       l3 = digitalRead(L3);
       l2 = digitalRead(L2);
@@ -128,21 +156,28 @@ void Tracking(){
       r2 = digitalRead(R2);
       r3 = digitalRead(R3);
     }
-    if(turns<=8) checkHowToGo(c[turns]);
-    else checkHowToGo('N');
-    turns+=1;
+    if(curstep<len) {
+      checkHowToGo( dir , curstep);
+      checkIfBeep(dir , curstep , len);
+      curstep += 1;
+    }
+    else {
+      while (true) MotorWriting(0,0);
+    } 
   }
+
+  //P control
   else {
     double error = (l3*(-w3)+l2*(-w2)+r2*(w2)+r3*(w3))/(l3+l2+m+r2+r3);
-    double dError = error-lastError;
-    double correction = Kp * error + Ki*dError;
+    //double dError = error-lastError;
+    double correction = Kp * error;// + Ki*dError;
     vL = VStraight + correction;
     vR = VStraight - correction;
     if(vL>=255) vL = 255;
     if(vL<=-255) vL = -255;
     if(vR>=255) vR = 255;
     if(vR<=-255) vR = -255;
-    lastError = error;
+    //lastError = error;
     MotorWriting(vL , vR);
   }
 }
@@ -155,46 +190,79 @@ void Beep() {
   if(!mfrc522->PICC_ReadCardSerial()) {
     goto FuncEnd;
   } //PICC_ReadCardSerial()：是否成功讀取資料?
-  Serial.println(F("**Card Detected:**"));
+  //Serial.println(F("*Card Detected:*"));
   mfrc522->PICC_DumpDetailsToSerial(&(mfrc522->uid)); //讀出 UID
   mfrc522->PICC_HaltA(); // 讓同一張卡片進入停止模式 (只顯示一次)
   mfrc522->PCD_StopCrypto1(); // 停止 Crypto1
 
   for ( int i = 0; i < 4; i++ ) { // 卡片UID為4段，分別做比對
-    //tmp = mfrc522->uid.uidByte[i]
-    BT.print(mfrc522->uid.uidByte[i] , HEX);
+    int tmp = mfrc522->uid.uidByte[i];
+    if(tmp<=15) {
+      BT.print(0 , HEX);
+    }
+    BT.print(tmp , HEX);
   }
   BT.print("\n");
   FuncEnd: ; // goto 跳到這.
 }
 
-void communicate() {
+void BTtoSerial() {
+  while(BT.available()) {
+    c2=BT.read();
+    dir=dir+c2;
+    Serial.write(c2);
+  }
+  //Serial.write(len);
+  len = dir.length();
+}
+void SerialtoBT() {
   while(Serial.available()) {
     c1=Serial.read();
     BT.write(c1);
   }
-  while(BT.available()) {
-    c2=BT.read();
-    Serial.write(c2);
-  }
 }
-
-void checkHowToGo(char dir='N'){
-  if(dir=='S') {
-    //直走
-    MotorWriting(100,100);
+void checkHowToGo(String dir , int curstep){
+  if(curstep==0) {
+    // 直走
+    c = 'S';
+    MotorWriting(200,200);
   }
-  else if(dir=='L') {
-    //左轉
-    MotorWriting(-100,100);
+  else {
+    int movement = dir[curstep] - dir[curstep-1];
+    if((movement == 0)){
+      // 直走
+      c = 'S';
+      MotorWriting(200,200);
+    }
+    else if((movement == -1) || (movement == 3)) {
+      //左轉
+      c = 'L';
+      MotorWriting(-200,200);
+    }
+    else if((movement == 1) || (movement == -3)) {
+      //右轉
+      c = 'R';
+      MotorWriting(200,-200);
+    }
+    else if((movement == 2) || (movement == -2)) {
+      //迴轉
+      c = 'R';
+      MotorWriting(200,-200);
+    }
+    else{
+      //靜止
+      c = 'N';
+      MotorWriting(0,0);
+    }
   }
-  else if(dir=='R'||dir=='B') {
-    //右轉or迴轉
-    MotorWriting(100,-100);
-  }
-  else if(dir=='N'){
-    //靜止
-    MotorWriting(0,0);
-  }
-  delay(500);
+  delay(150);
 }
+void checkIfBeep(String dir , int curstep , int len) {
+  if(curstep==0 ) checkbeep = true;
+  else if(curstep==(len-1)) checkbeep = true;
+  else if(dir[curstep+1]-dir[curstep]==2 || dir[curstep+1]-dir[curstep]==-2) checkbeep = true;
+  else checkbeep = false;
+}
+//<可能需要加的>
+//1.出軌防治機制
+//2.PD control

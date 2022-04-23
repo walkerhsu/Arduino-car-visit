@@ -38,6 +38,7 @@ def main():
             s+=output1
             print("from ",startIndex,"to ",destination)
             startIndex = destination
+            
         print("string = " , s)
             # test1 , test2= maze.strategy(11)
             # m = maze.get_Direction(test2)
@@ -55,20 +56,31 @@ def main():
             # print(output2)
 
 
-        #bt.SerialWrite(output)
-        # TODO: You can write your code to test specific function.
-# def read():
-#     while True:
-#         if bt.waiting():
-#             print(bt.SerialReadString())
+        bt.SerialWrite(s)
+        while True:
+            msgWrite = input()
+            if msgWrite == "exit": sys.exit()
+            bt.SerialWrite(msgWrite)
+        ## TODO: You can write your code to test specific function.
+def read():
+    while True:
+        if bt.waiting():
+            print(bt.SerialReadString())
+
+def write():
+    while True:
+        msgWrite = input()
+        if msgWrite == "exit": sys.exit()
+        bt.SerialWrite(msgWrite + "\n")
 
 if __name__ == '__main__':
-    # bt = BT.bluetooth("/dev/tty.042-SerialPort") 
-    # while not bt.is_open(): pass
-    # print("BT Connected!")
+    bt = BT.bluetooth("/dev/tty.042-SerialPort") 
+    while not bt.is_open(): pass
+    print("BT Connected!")
 
-    # readThread = threading.Thread(target=read)
-    # readThread.daemon = True
-    # readThread.start()
+    readThread = threading.Thread(target=read)
+    readThread.daemon = True
+    readThread.start()
 
     main()
+
