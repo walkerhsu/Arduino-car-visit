@@ -187,3 +187,57 @@ class Maze:
             if endNode==nodeIndex :
                 return True
         return False
+
+    def Dijkstra(self , start) :
+        queue = []
+        records = []
+
+        for i in range(self.num_rows):
+            if (i+1) == start:
+                queue.append([i+1 , 0 , -1 , -1][:]) #index , shortestDistance , parent , direction
+            else :
+                queue.append([i+1 , 10E5 , -1 , -1][:])
+        # print(queue)
+        while len(queue)!=0 :
+            # print("---------------------------------------------")
+            #for q in queue:
+            #    print(q)
+            distance = 10E5
+            shortest = []
+            for list in queue :
+                if list[1]<distance:
+                    shortest = list
+                    distance = list[1]
+            # print(shortest)
+            queue.remove(shortest)
+            tmpNode = self.nd_dict[shortest[0]]
+            sucessors = tmpNode.getSuccessors()
+            for suc in sucessors:
+                pos=-1
+                for i in range(len(queue)):
+                    if queue[i][0]==int(suc[0]) :
+                        pos = i
+                if pos!=-1 and (suc[2] + shortest[1] < queue[ pos ][1]):
+                    queue[ pos ][1] = suc[2] + shortest[1]
+                    queue[ pos ][2] = shortest[0]
+                    queue[ pos ][3] = suc[1]
+            records.append(shortest[:])
+            if self.inEndNodes(shortest[0]): 
+                self.endNodes.remove(shortest[0])
+                return shortest[0] , records
+        # return records
+    def getHowToGo(self , nd_start , nd_end , lst) :
+        #lst : index , distance , parent , father
+        currentStep = nd_end
+        direction_path = []
+        while nd_start != currentStep:
+            for ls in lst :
+                if ls[0]==currentStep:
+                    if currentStep == nd_end : 
+                        total_distance = ls[1]
+                    currentStep = ls[2]
+                    direction_path.append(ls[3])
+                    break
+        direction_path.reverse()
+        movement = self.get_Direction(direction_path)
+        return total_distance , movement

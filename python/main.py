@@ -15,7 +15,7 @@ import os
 
 def main():
     maze = mz.Maze("data/medium_maze.csv")
-    #point = score.Scoreboard("data/UID.csv", "team_NTUEE")
+    #point = score.Scoreboard("data/UID.csv", "team_3")
     #interf = interface.interface()
     # TODO : Initialize necessary variables
     endNodes = maze.getEndNodes()
@@ -62,10 +62,33 @@ def main():
             if msgWrite == "exit": sys.exit()
             bt.SerialWrite(msgWrite)
         ## TODO: You can write your code to test specific function.
+    elif (sys.argv[1] == '2'):
+        print("Mode 2: Self-testing mode.")
+        startNode = maze.getStartPoint()
+        startIndex = startNode.getIndex()
+        print ("start from : " , startIndex)
+        total_steps = 0
+        while(len(endNodes)!=0) :
+            endNode , lst = maze.Dijkstra(startIndex)
+            dist , m = maze.getHowToGo(startIndex , endNode ,lst)
+            output1 = ''.join(m)
+            s+=output1
+            print("from ",startIndex,"to ",endNode , " cost ",dist," steps.")
+            total_steps += dist
+            startIndex = endNode
+        print("string s = " , s)
+        print("total steps = ", total_steps)
+        #for endNode in endNodes :
+    
 def read():
+    point = score.Scoreboard("data/UID.csv", "team_3")
     while True:
         if bt.waiting():
-            print(bt.SerialReadString())
+            UID = bt.SerialReadString()
+            print(UID)
+            point.add_UID(UID)
+
+
 
 def write():
     while True:
@@ -74,13 +97,13 @@ def write():
         bt.SerialWrite(msgWrite + "\n")
 
 if __name__ == '__main__':
-    bt = BT.bluetooth("/dev/tty.042-SerialPort") 
-    while not bt.is_open(): pass
-    print("BT Connected!")
+    # bt = BT.bluetooth("/dev/tty.042-SerialPort") 
+    # while not bt.is_open(): pass
+    # print("BT Connected!")
 
-    readThread = threading.Thread(target=read)
-    readThread.daemon = True
-    readThread.start()
+    # readThread = threading.Thread(target=read)
+    # readThread.daemon = True
+    # readThread.start()
 
     main()
 
