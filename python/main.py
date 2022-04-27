@@ -14,7 +14,7 @@ import sys
 import os
 
 def main():
-    maze = mz.Maze("data/medium_maze.csv")
+    maze = mz.Maze("data/8_7_maze(2).csv")
     #point = score.Scoreboard("data/UID.csv", "team_3")
     #interf = interface.interface()
     # TODO : Initialize necessary variables
@@ -40,22 +40,6 @@ def main():
             startIndex = destination
             
         print("string = " , s)
-            # test1 , test2= maze.strategy(11)
-            # m = maze.get_Direction(test2)
-            # output1 = ''.join(m)
-            # print(test1 , output1)
-
-            # test1 , test2 = maze.strategy_2(7,9)
-            # m = maze.get_Direction(test2)
-            # output2 = ''.join(m)
-            # print(output2)
-
-            # test1 , test2 = maze.strategy_2(7,9)
-            # m = maze.get_Direction(test2)
-            # output2 = ''.join(m)
-            # print(output2)
-
-
         bt.SerialWrite(s)
         while True:
             msgWrite = input()
@@ -69,7 +53,7 @@ def main():
         print ("start from : " , startIndex)
         total_steps = 0
         while(len(endNodes)!=0) :
-            endNode , lst = maze.Dijkstra(startIndex)
+            endNode , lst = maze.strategy_3(startIndex)
             dist , m = maze.getHowToGo(startIndex , endNode ,lst)
             output1 = ''.join(m)
             s+=output1
@@ -87,6 +71,7 @@ def read():
             UID = bt.SerialReadString()
             print(UID)
             point.add_UID(UID)
+            point.getCurrentScore()
 
 
 
