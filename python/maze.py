@@ -28,7 +28,7 @@ class Maze:
         self.startPoint = 1
         self.visited = []
         self.points = []
-        self.straightSpeed , self.turnSpeed , self.backSpeed = (1 , 0.5 , 1)
+        self.straightTime , self.turnTime , self.backTime = (1 , 0.5 , 1)
         for i in range (self.num_rows) :
             if i+1+self.cntPassNode == self.passNode[self.cntPassNode] or self.cntPassNode == len(self.passNode):
                 self.cntPassNode+=1
@@ -39,11 +39,11 @@ class Maze:
                 self.endNodesDistance[i+1+self.cntPassNode] = self.setDistance(i+1+self.cntPassNode)
             self.nd_dict[i+1+self.cntPassNode] = tmpNode
 
-    def getBackSpeed(self):
-        return self.backSpeed
+    def getBackTime(self):
+        return self.backTime
 
     def setDistance(self , index):
-        rows = 7
+        rows = 6
         # print(int((index-self.startPoint)/rows) , int((index-self.startPoint)%rows))
         # print(30*(int((index-self.startPoint)/rows)+int((index-self.startPoint)%rows)))
         return 30*(int((index-self.startPoint)/rows)+int((index-self.startPoint)%rows))
@@ -138,7 +138,7 @@ class Maze:
         # print(candidates)
         for candidate in candidates:
             point , time , turn = self.endNodesDistance[candidate[0]] , candidate[1] , candidate[2]
-            print("index " , candidate[0] , ": " , point ," , " , time , " , " , float(point/time))
+            # print("index " , candidate[0] , ": " , point ," , " , time , " , " , float(point/time))
             if float(point/time) > efficiency:
                 efficiency = float(point/time)
                 points = point
@@ -157,6 +157,52 @@ class Maze:
         # print(points , efficiency , turns , bestEnd)
         return bestEnd
 
+    def setQueue(self , startIndex):
+        queue = []
+        for i in range(self.num_rows+self.cntPassNode):
+            if self.inPassNodes(i+1):
+                continue
+            if (i+1) == startIndex:
+                queue.append([i+1 , 0 , -1 , -1 , 0][:]) #index , timeTaken , parent , direction , turns
+            else:
+                already_visited = False
+                for visited in self.visited:
+                    if (i+1) == visited :  
+                        already_visited = True
+                        break
+                if not already_visited :
+                    queue.append([i+1 , 10E6 , -1 , -1 , 10E6][:])
+        return queue
+
+    def findRoute(self , queue):
+        shortest , timeTaken , turns = self.chooseShortest(queue)
+        queue.remove(shortest)
+        tmpNode = self.nd_dict[shortest[0]]
+        sucessors = tmpNode.getSuccessors()
+
+        for suc in sucessors:
+            queue = self.updateQueue(queue , suc , shortest)
+            
+        return queue , shortest , timeTaken , turns
+
+    def chooseShortest(self , queue):
+            # print("---------------------------------------------")
+                # for q in queue:
+                #     print(q)
+            timeTaken , turns = 10E6 , 10E6
+            shortest = []
+            for list in queue :
+                if list[1]<timeTaken:
+                    shortest = list
+                    timeTaken = list[1]
+                    turns = list[4]
+                elif list[1]==timeTaken:
+                    if list[4]<turns:
+                        shortest = list
+                        turns = list[4]
+            # print(shortest)
+            return shortest , timeTaken , turns
+ 
     def getHowToGo(self , nd_start , nd_end , lst) :
         #lst : index , distance , parent , father
         currentStep = nd_end
@@ -183,57 +229,41 @@ class Maze:
         if (dir1==dir2 or dir1 == -1):
             return 0 #straight
         elif (dir1-dir2==2 or dir1-dir2==-2) :
-            return self.backSpeed #back
+            return self.backTime #back
         else:
-            return self.turnSpeed #left/right turn
+            return self.turnTime #left/right turn
 
+    def updateQueue(self , queue , suc , shortest):
+        pos=-1
+        for i in range(len(queue)):
+            if queue[i][0]==int(suc[0]) :
+                pos = i
+                break
+        nextMoveTime = self.nextStep(shortest[3] , suc[1])
+        if pos!=-1 and (suc[2]*self.straightTime + shortest[1] + nextMoveTime  < queue[ pos ][1]):
+            queue[ pos ][1] = suc[2]*self.straightTime + shortest[1] + nextMoveTime
+            queue[ pos ][2] = shortest[0]
+            queue[ pos ][3] = suc[1]
+            queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
+        elif pos!=-1 and (suc[2]*self.straightTime + shortest[1] + nextMoveTime  == queue[ pos ][1]):
+            if shortest[4] + self.TurnOrNot(shortest[3] , suc[1]) < queue[ pos ][4] : 
+                queue[ pos ][2] = shortest[0]
+                queue[ pos ][3] = suc[1]
+                queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
+        return queue
+ 
     def Dijkstra(self , start) :
-        queue = self.setQueue(start)
+        queue = self.setQueue(start) #將所有node塞入queue中
         records = []
         candidates = []
-        # print(queue)
         while len(queue)!=0 :
-            # print("---------------------------------------------")
-            # for q in queue:
-            #     print(q)
-            distance , turns = 10E6 , 10E6
-            shortest = []
-            for list in queue :
-                if list[1]<distance:
-                    shortest = list
-                    distance = list[1]
-                    turns = list[4]
-                elif list[1]==distance:
-                    if list[4]<turns:
-                        shortest = list
-                        turns = list[4]
-            # print(shortest)
+            queue , shortest , timeTaken , turns = self.findRoute(queue) #找出下一個timeTaken最短的是誰，並且更新此node的successor
 
-            queue.remove(shortest)
-            tmpNode = self.nd_dict[shortest[0]]
-            sucessors = tmpNode.getSuccessors()
-            
-            for suc in sucessors:
-                pos=-1
-                for i in range(len(queue)):
-                    if queue[i][0]==int(suc[0]) :
-                        pos = i
-                if pos!=-1 and (suc[2] + shortest[1] < queue[ pos ][1]):
-                    queue[ pos ][1] = suc[2] + shortest[1]
-                    queue[ pos ][2] = shortest[0]
-                    queue[ pos ][3] = suc[1]
-                    queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
-                elif pos!=-1 and (suc[2] + shortest[1] == queue[ pos ][1]):
-                    if shortest[4] + self.TurnOrNot(shortest[3] , suc[1]) < queue[ pos ][4] : 
-                        queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
-                        queue[ pos ][1] = suc[2] + shortest[1]
-                        queue[ pos ][2] = shortest[0]
-                        queue[ pos ][3] = suc[1]
             records.append(shortest[:])
-            if self.inEndNodes(shortest[0]) :
-                candidates.append([shortest[0] ,shortest[1] , turns][:])
-                if self.timeAllLonger(queue , distance):
-                    bestEnd = self.bestEfficiency(candidates)
+            if self.inEndNodes(shortest[0]) : #判斷是否是端點
+                candidates.append([shortest[0] ,shortest[1] , turns][:]) #將端點塞進candidates中
+                if self.timeAllLonger(queue , timeTaken): #判斷queue中還有沒有人的timeTaken與此node相同(True:沒有,False:有)
+                    bestEnd = self.bestEfficiency(candidates) #找出效率最高的node
                     self.endNodes.remove(bestEnd)
                     self.visited.append(bestEnd)
                     return bestEnd , records
@@ -288,70 +318,19 @@ class Maze:
                         return (shortestPath , Path)
 
     def Dijkstra_2(self , start) :
-        queue = self.setQueue(start)
+        queue = self.setQueue(start) #將所有node塞入queue中
         records = []
         candidates = []
-        # print(queue)
         while len(queue)!=0 :
-            # print("---------------------------------------------")
-            # for q in queue:
-            #     print(q)
-            timeTaken , turns = 10E6 , 10E6
-            shortest = []
-            for list in queue :
-                if list[1]<timeTaken:
-                    shortest = list
-                    timeTaken = list[1]
-                    turns = list[4]
-                elif list[1]==timeTaken:
-                    if list[4]<turns:
-                        shortest = list
-                        turns = list[4]
-            # print(shortest)
+            queue , shortest , timeTaken , turns = self.findRoute(queue) #找出下一個timeTaken最短的是誰，並且更新此node的successor
 
-            queue.remove(shortest)
-            tmpNode = self.nd_dict[shortest[0]]
-            sucessors = tmpNode.getSuccessors()
-            
-            for suc in sucessors:
-                pos=-1
-                for i in range(len(queue)):
-                    if queue[i][0]==int(suc[0]) :
-                        pos = i
-                        break
-                nextMoveTime = self.nextStep(shortest[3] , suc[1])
-                if pos!=-1 and (suc[2]*self.straightSpeed + shortest[1] + nextMoveTime  < queue[ pos ][1]):
-                    queue[ pos ][1] = suc[2]*self.straightSpeed + shortest[1] + nextMoveTime
-                    queue[ pos ][2] = shortest[0]
-                    queue[ pos ][3] = suc[1]
-                    queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
-                elif pos!=-1 and (suc[2]*self.straightSpeed + shortest[1] + nextMoveTime  == queue[ pos ][1]):
-                    if shortest[4] + self.TurnOrNot(shortest[3] , suc[1]) < queue[ pos ][4] : 
-                        queue[ pos ][2] = shortest[0]
-                        queue[ pos ][3] = suc[1]
-                        queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
             records.append(shortest[:])
-            if self.inEndNodes(shortest[0]) :
-                candidates.append([shortest[0] , shortest[1], turns][:])
+            if self.inEndNodes(shortest[0]) : #判斷是否是端點
+                candidates.append([shortest[0] , shortest[1], turns][:]) #將端點塞進candidates中
         # print(shortest[:])
-        bestEnd = self.bestEfficiency(candidates)
+        bestEnd = self.bestEfficiency(candidates) #找出效率最高的node
         self.endNodes.remove(bestEnd)
         self.visited.append(bestEnd)
         return bestEnd , records
 
-    def setQueue(self , startIndex):
-        queue = []
-        for i in range(self.num_rows+self.cntPassNode):
-            if self.inPassNodes(i+1):
-                continue
-            if (i+1) == startIndex:
-                queue.append([i+1 , 0 , -1 , -1 , 0][:]) #index , timeTaken , parent , direction , turns
-            else:
-                already_visited = False
-                for visited in self.visited:
-                    if (i+1) == visited :  
-                        already_visited = True
-                        break
-                if not already_visited :
-                    queue.append([i+1 , 10E6 , -1 , -1 , 10E6][:])
-        return queue
+    

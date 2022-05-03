@@ -14,7 +14,7 @@ import sys
 import os
 
 def main():
-    maze = mz.Maze("data/8_7_maze(1).csv")
+    maze = mz.Maze("data/maze_8x6_2.csv")
     #point = score.Scoreboard("data/UID.csv", "team_3")
     #interf = interface.interface()
     # TODO : Initialize necessary variables
@@ -66,19 +66,20 @@ def main():
         # ## TODO: You can write your code to test specific function.
     elif (sys.argv[1] == '2'):
         print("Mode 2: Self-testing mode.")
+        print("using method 1!!!!!!!!!!!!!!")
         startNode = maze.getStartPoint()
         startIndex = startNode.getIndex()
         print ("start from : " , startIndex)
         total_steps = 0
         while(len(endNodes)!=0) :
-            endNode , lst = maze.strategy_3(startIndex)
+            endNode , lst = maze.strategy_(startIndex)
             dist , m = maze.getHowToGo(startIndex , endNode ,lst)
             output1 = ''.join(m)
             s+=output1
-            print("from ",startIndex,"to ",endNode , " , taking ",dist," seconds.")
+            print("from ",startIndex,"to ",endNode , " , taking ",dist," seconds , and gets ",maze.endNodesDistance[endNode]," points.")
             if len(endNodes)!=0:
-                print("backTurn at  ",endNode," , taking ",maze.getBackSpeed() , " seconds.")
-                total_steps += maze.getBackSpeed()
+                print("backTurn at  ",endNode," , taking ",maze.getBackTime() , " seconds.")
+                total_steps += maze.getBackTime()
             total_steps += dist
             startIndex = endNode
         print("string s = " , s)
