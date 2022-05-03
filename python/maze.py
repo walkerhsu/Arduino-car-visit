@@ -12,19 +12,41 @@ class Maze:
 		# Finally, add to nd_dictionary by {key(index): value(corresponding node)}
         self.raw_data = pandas.read_csv(filepath).values #returned as two-dimensional data structure with labeled axes.
         #print(self.raw_data)
-        self.nd_dict = dict()
+        self.cntPassNode = 0
         self.num_rows = self.raw_data.shape[0]
+        self.passNode = []
+        for i in range(self.num_rows):
+            if i+1 != self.raw_data[i-self.cntPassNode][0] :
+                self.passNode.append(i+1)
+                self.cntPassNode += 1
+        self.passNode.append(-1)
+        self.cntPassNode = 0
+        self.cnt = 0
+        self.nd_dict = dict()
         self.endNodes = []
+        self.endNodesDistance = dict()
         self.startPoint = 1
         self.visited = []
+        self.points = []
+        self.straightSpeed , self.turnSpeed , self.backSpeed = (1 , 0.5 , 1)
         for i in range (self.num_rows) :
-            tmpNode = node.Node(self.raw_data , i+1)
-            if tmpNode.checkIfEnd():
-                self.endNodes.append(i+1)
-            self.nd_dict[i+1] = tmpNode
-            #print(self.nd_dict[i])
-        #for i in range (self.num_rows) :
-        #    print(self.nd_dict[i+1].getSuccessors())
+            if i+1+self.cntPassNode == self.passNode[self.cntPassNode] or self.cntPassNode == len(self.passNode):
+                self.cntPassNode+=1
+            # print(i , self.cntPassNode , i+1+self.cntPassNode)
+            tmpNode = node.Node(self.raw_data , self.cntPassNode , i+1+self.cntPassNode)
+            if tmpNode.isEnd:
+                self.endNodes.append(i+1+self.cntPassNode)
+                self.endNodesDistance[i+1+self.cntPassNode] = self.setDistance(i+1+self.cntPassNode)
+            self.nd_dict[i+1+self.cntPassNode] = tmpNode
+
+    def getBackSpeed(self):
+        return self.backSpeed
+
+    def setDistance(self , index):
+        rows = 7
+        # print(int((index-self.startPoint)/rows) , int((index-self.startPoint)%rows))
+        # print(30*(int((index-self.startPoint)/rows)+int((index-self.startPoint)%rows)))
+        return 30*(int((index-self.startPoint)/rows)+int((index-self.startPoint)%rows))
 
     def getStartPoint(self):
         if (len(self.nd_dict) < 2):
@@ -41,6 +63,10 @@ class Maze:
     def getEndNodes(self):
         return self.endNodes    
 
+    def setPoints(self):
+        for endNode in self.endNodes:
+            return
+
     def setStartPoint(self , index):
         self.startPoint = index
         return
@@ -48,11 +74,11 @@ class Maze:
     def strategy(self, nd):
         return self.BFS(nd)
 
-    def strategy_2(self, nd_from, nd_to):
-        return self.BFS_2(nd_from, nd_to)
-
-    def strategy_3(self , start):
+    def strategy_2(self , start):
         return self.Dijkstra(start)
+
+    def strategy_3(self ,  start) :
+        return self.Dijkstra_2(start)
 
     def get_Direction(self , directions) :
         lst = []
@@ -60,11 +86,11 @@ class Maze:
             if dir == 0:
                 lst.append('1')
             elif dir == 1:
-                lst.append('3')
-            elif dir == 2:
-                lst.append('4')
-            elif dir == 3:
                 lst.append('2')
+            elif dir == 2:
+                lst.append('3')
+            elif dir == 3:
+                lst.append('4')
         return lst
             
     def inEndNodes(self , nodeIndex) :
@@ -72,6 +98,64 @@ class Maze:
             if endNode==nodeIndex :
                 return True
         return False
+
+    def inPassNodes(self , index) :
+        for passNode in self.passNode:
+            if passNode == index :
+                return  True
+        return False
+
+    def timeAllLonger(self , queue , time) :
+        for node in queue:
+            if self.inEndNodes(node[0]):
+                if(node[1]<=time):
+                    return False
+        return True
+
+    def bestRoute(self , candidates):
+        points = -1
+        turns = 10E6
+        bestEnd = -1
+        # print(candidates)
+        for candidate in candidates:
+            # print(self.endNodesDistance[candidate[0]])
+            if self.endNodesDistance[candidate[0]]>points:
+                points = self.endNodesDistance[candidate[0]]
+                turns = candidate[1]
+                bestEnd = candidate[0]
+            elif self.endNodesDistance[candidate[0]]==points:
+                if candidate[1]<turns :
+                    turns = candidate[1]
+                    bestEnd = candidate[0]
+        # print(bestEnd)
+        return bestEnd
+
+    def bestEfficiency(self , candidates):
+        points = -1
+        efficiency = -1
+        turns = 10E6
+        bestEnd = -1
+        # print(candidates)
+        for candidate in candidates:
+            point , time , turn = self.endNodesDistance[candidate[0]] , candidate[1] , candidate[2]
+            print("index " , candidate[0] , ": " , point ," , " , time , " , " , float(point/time))
+            if float(point/time) > efficiency:
+                efficiency = float(point/time)
+                points = point
+                turns = candidate[2]
+                bestEnd = candidate[0]
+            elif float(point/time) == efficiency:
+                if point > points :
+                    points = point
+                    turns = candidate[2]
+                    bestEnd = candidate[0]
+                elif point == points:
+                    if turn < turns :
+                        turns = candidate[2]
+                        bestEnd = candidate[0]
+        # print("----------------------------------------------")
+        # print(points , efficiency , turns , bestEnd)
+        return bestEnd
 
     def getHowToGo(self , nd_start , nd_end , lst) :
         #lst : index , distance , parent , father
@@ -90,26 +174,24 @@ class Maze:
         return total_distance , movement
 
     def TurnOrNot(self , dir1 , dir2):
-        if (dir1==dir2):
+        if (dir1==dir2 or dir1 == -1):
             return 0
         elif (dir1!=dir2) :
             return 1
 
+    def nextStep(self , dir1 , dir2):
+        if (dir1==dir2 or dir1 == -1):
+            return 0 #straight
+        elif (dir1-dir2==2 or dir1-dir2==-2) :
+            return self.backSpeed #back
+        else:
+            return self.turnSpeed #left/right turn
+
     def Dijkstra(self , start) :
-        queue = []
+        queue = self.setQueue(start)
         records = []
-        for i in range(self.num_rows):
-            if (i+1) == start:
-                queue.append([i+1 , 0 , -1 , -1 , -1][:]) #index , shortestDistance , parent , direction , turns
-            else:
-                already_visited = False
-                for visited in self.visited:
-                    if (i+1) == visited :  
-                        already_visited = True
-                        break
-                if not already_visited :
-                    queue.append([i+1 , 10E6 , -1 , -1 , 10E6][:])
-        #print(queue)
+        candidates = []
+        # print(queue)
         while len(queue)!=0 :
             # print("---------------------------------------------")
             # for q in queue:
@@ -148,57 +230,15 @@ class Maze:
                         queue[ pos ][2] = shortest[0]
                         queue[ pos ][3] = suc[1]
             records.append(shortest[:])
-            if self.inEndNodes(shortest[0]): 
-                self.endNodes.remove(shortest[0])
-                self.visited.append(shortest[0])
-                return shortest[0] , records
+            if self.inEndNodes(shortest[0]) :
+                candidates.append([shortest[0] ,shortest[1] , turns][:])
+                if self.timeAllLonger(queue , distance):
+                    bestEnd = self.bestEfficiency(candidates)
+                    self.endNodes.remove(bestEnd)
+                    self.visited.append(bestEnd)
+                    return bestEnd , records
 
-    def BFS(self, nd):
-        cnt=0
-        queue = [[float(nd),0,0]]
-        nodeList = []
-        DirectionList = []
-        parentList = []
-        records = [float(nd)]
-
-        while len(queue)!=0:
-            tmplist = queue.pop(0)[:]
-            tmpNode = self.nd_dict[tmplist[0]]
-            if tmpNode.getSuccessorNumbers()==1 and tmplist[0]!=nd and self.inEndNodes(tmplist[0]):
-                destination = tmplist[0]
-                self.endNodes.remove(destination)
-                #shortestPath = [float(tmplist[0])]
-                Path = []
-                while tmplist[0]!=nd:
-                    for j in range(cnt):
-                        if nodeList[j]==tmplist[0]:
-                            tmplist[0] = parentList[j]
-                            tmplist[1] = DirectionList[j]
-                            #shortestPath.append(float(tmplist[0]))
-                            #print(tmplist)
-                            Path.append(tmplist[1])
-                            #print(Path)
-                            cnt = j
-                            break
-                #shortestPath.reverse()
-                Path.reverse()
-                return destination , Path
-            else :
-                for i in range (tmpNode.getSuccessorNumbers()):
-                    inRecord=False
-                    for record in records :
-                        if record == tmpNode.getSuccessors()[i][0]:
-                            inRecord=True
-                            break
-                    if not inRecord :
-                        queue.append(tmpNode.getSuccessors()[i])
-                        nodeList.append(tmpNode.getSuccessors()[i][0])
-                        DirectionList.append(tmpNode.getSuccessors()[i][1])
-                        parentList.append(tmplist[0])
-                        records.append(tmpNode.getSuccessors()[i][0])
-                        cnt+=1
-    
-    def BFS_2(self, nd_from, nd_to):
+    def BFS(self, nd_from, nd_to):
         cnt=0
         queue = [[float(nd_from),0,0]]
         nodeList = []
@@ -246,3 +286,72 @@ class Maze:
                         print(shortestPath , Path)
                         #print(records)
                         return (shortestPath , Path)
+
+    def Dijkstra_2(self , start) :
+        queue = self.setQueue(start)
+        records = []
+        candidates = []
+        # print(queue)
+        while len(queue)!=0 :
+            # print("---------------------------------------------")
+            # for q in queue:
+            #     print(q)
+            timeTaken , turns = 10E6 , 10E6
+            shortest = []
+            for list in queue :
+                if list[1]<timeTaken:
+                    shortest = list
+                    timeTaken = list[1]
+                    turns = list[4]
+                elif list[1]==timeTaken:
+                    if list[4]<turns:
+                        shortest = list
+                        turns = list[4]
+            # print(shortest)
+
+            queue.remove(shortest)
+            tmpNode = self.nd_dict[shortest[0]]
+            sucessors = tmpNode.getSuccessors()
+            
+            for suc in sucessors:
+                pos=-1
+                for i in range(len(queue)):
+                    if queue[i][0]==int(suc[0]) :
+                        pos = i
+                        break
+                nextMoveTime = self.nextStep(shortest[3] , suc[1])
+                if pos!=-1 and (suc[2]*self.straightSpeed + shortest[1] + nextMoveTime  < queue[ pos ][1]):
+                    queue[ pos ][1] = suc[2]*self.straightSpeed + shortest[1] + nextMoveTime
+                    queue[ pos ][2] = shortest[0]
+                    queue[ pos ][3] = suc[1]
+                    queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
+                elif pos!=-1 and (suc[2]*self.straightSpeed + shortest[1] + nextMoveTime  == queue[ pos ][1]):
+                    if shortest[4] + self.TurnOrNot(shortest[3] , suc[1]) < queue[ pos ][4] : 
+                        queue[ pos ][2] = shortest[0]
+                        queue[ pos ][3] = suc[1]
+                        queue[ pos ][4] = shortest[4] + self.TurnOrNot(shortest[3] , suc[1])
+            records.append(shortest[:])
+            if self.inEndNodes(shortest[0]) :
+                candidates.append([shortest[0] , shortest[1], turns][:])
+        # print(shortest[:])
+        bestEnd = self.bestEfficiency(candidates)
+        self.endNodes.remove(bestEnd)
+        self.visited.append(bestEnd)
+        return bestEnd , records
+
+    def setQueue(self , startIndex):
+        queue = []
+        for i in range(self.num_rows+self.cntPassNode):
+            if self.inPassNodes(i+1):
+                continue
+            if (i+1) == startIndex:
+                queue.append([i+1 , 0 , -1 , -1 , 0][:]) #index , timeTaken , parent , direction , turns
+            else:
+                already_visited = False
+                for visited in self.visited:
+                    if (i+1) == visited :  
+                        already_visited = True
+                        break
+                if not already_visited :
+                    queue.append([i+1 , 10E6 , -1 , -1 , 10E6][:])
+        return queue

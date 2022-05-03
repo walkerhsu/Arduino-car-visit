@@ -7,23 +7,35 @@ from enum import IntEnum
 # ex: print(Direction.SOUTH == 0) should return False
 class Direction(IntEnum):
     NORTH = 0
-    SOUTH = 1
-    WEST  = 2
-    EAST  = 3
+    EAST = 1
+    SOUTH  = 2
+    WEST  = 3
 
 # Construct class Node and its member functions
 # You may add more member functions to meet your needs
 class Node:
-    def __init__(self, map , index=0):
+    def __init__(self, map , number , index=0):
         self.index = index
         self.map = map
         self.Successors = []
         # store successor as (Node, direction to node, distance)
         for i in range (4) :
-            if not ( math.isnan(map[index-1][i+1]) ):
-                self.Successors.append([map[index-1][i+1],Direction(i),map[index-1][i+5]])
+            if not ( math.isnan(map[index-1-number][i+1]) ):
+                dir = self.setDirection(i)
+                self.Successors.append([map[index-1-number][i+1],Direction(dir),map[index-1-number][i+5]])
             #print (self.Successors[i])
         self.isEnd = self.checkIfEnd()       
+
+    def setDirection(self , i):
+        if i==0:
+            return 0
+        if i==1:
+            return 2
+        if i==2:
+            return 3
+        if i==3:
+            return 1
+
 
     def getIndex(self):
         return self.index
@@ -40,13 +52,6 @@ class Node:
     def setSuccessor(self, successor, direction, length=1):
         self.Successors.append((successor, Direction(direction), int(length)))
         print("For Node {}, a successor {} is set.".format(self.index, self.Successors[-1]))
-        return
-
-
-    def getDirection(self, nd):
-        # TODO : if nd is adjacent to the present node, return the direction of nd from the present node
-		# For example, if the direction of nd from the present node is EAST, then return Direction.EAST = 4
-		# However, if nd is not adjacent to the present node, print error message and return 0 
         return
 
     def isSuccessor(self, nd):
