@@ -23,7 +23,8 @@ class Node:
             if not ( math.isnan(map[index-1-number][i+1]) ):
                 dir = self.setDirection(i)
                 self.Successors.append([map[index-1-number][i+1],Direction(dir),map[index-1-number][i+5]])
-            #print (self.Successors[i])
+        # for i in range (self.getSuccessorNumbers()) :
+        #     print(self.Successors[i])
         self.isEnd = self.checkIfEnd()       
 
     def setDirection(self , i):
